@@ -5,6 +5,8 @@ import { getWilayahData } from "@/lib/wilayah";
 import { getTpsList } from "@/lib/tps";
 
 
+export const dynamic = "force-dynamic";
+
 export default async function BackyardDashboardPage() {
   const activeTahapan = await getActiveTahapan();
 

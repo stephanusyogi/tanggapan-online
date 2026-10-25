@@ -16,6 +16,7 @@ export const pool =
     connectionLimit: 10,
     queueLimit: 0,
     decimalNumbers: true,
+    connectTimeout: 10000,
   });
 
 if (process.env.NODE_ENV !== "production") {

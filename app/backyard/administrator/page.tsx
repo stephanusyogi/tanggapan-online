@@ -7,6 +7,8 @@ export const metadata = {
   title: "Administrator - Backyard KPU Ngawi",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function AdministratorPage() {
   const currentAdmin = await getCurrentAdmin();
 

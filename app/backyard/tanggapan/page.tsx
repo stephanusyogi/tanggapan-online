@@ -8,6 +8,8 @@ export const metadata = {
   title: "Tanggapan Masyarakat - Backyard KPU Ngawi",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function TanggapanPage() {
   let items: UnifiedTanggapanItem[] = [];
   let availableTahapan: string[] = [];
