@@ -40,3 +40,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# uploads & generated outputs (preserve initial push, ignore future additions)
+/public/storage/upload/*
+/public/storage/output/*
