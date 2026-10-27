@@ -56,3 +56,111 @@ export async function getActiveTahapan(): Promise<string> {
   // 3. Safe fallback if network fails
   return cachedTahapan?.nama || "PDPB Triwulan 4 Tahun 2026";
 }
+
+export interface PemilihRecord {
+  nama?: string;
+  nama_masked?: string;
+  nik?: string;
+  nkk?: string;
+  kelamin?: string;
+  kecamatan?: string;
+  kelurahan?: string;
+  tps?: string | number;
+  alamat_wilayah?: string;
+  rt?: string;
+  rw?: string;
+  tempat_lahir?: string;
+  tanggal_lahir?: string;
+  status_kawin?: string;
+  [key: string]: any;
+}
+
+export interface TangmasSearchResult {
+  success?: boolean;
+  query?: string;
+  kind?: string;
+  total: number;
+  records: PemilihRecord[];
+  message?: string;
+}
+
+/**
+ * Cek pemilih Tangmas via syncdata API:
+ * Endpoint: POST /api/v1/search/tangmas
+ */
+export async function cekPemilihTangmas(
+  nikOrNkk: string,
+  baseUrl = process.env.SYNCDATA_API_URL || "https://syncdata.kpungawi.com",
+  kind: "NIK" | "NKK" = "NIK"
+): Promise<PemilihRecord | null> {
+  const cleanQuery = String(nikOrNkk || "").trim().replace(/\D/g, "");
+
+  let res = await fetch(`${baseUrl}/api/v1/search/tangmas`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query: cleanQuery, kind }),
+  });
+
+  // Fallback ke /api/v1/search/pemilih jika endpoint /search/tangmas belum tersedia (404)
+  if (res.status === 404) {
+    res = await fetch(`${baseUrl}/api/v1/search/pemilih`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: cleanQuery, kind }),
+    });
+  }
+
+  const result = await res.json();
+  if (!res.ok) {
+    throw new Error(result.message || "Gagal melakukan pencarian Tangmas");
+  }
+
+  if (result.total > 0 && result.records && result.records.length > 0) {
+    const pemilih = result.records[0];
+    console.log(
+      `Pemilih Aktif: ${pemilih.nama_masked || pemilih.nama} di TPS ${pemilih.tps}, Kel. ${pemilih.kelurahan}`
+    );
+    return pemilih;
+  } else {
+    console.log("Pemilih tidak ditemukan atau bukan pemilih aktif.");
+    return null;
+  }
+}
+
+/**
+ * Pencarian Tangmas mentah (mengembalikan total dan array records)
+ */
+export async function searchTangmasRaw(
+  nikOrNkk: string,
+  baseUrl = process.env.SYNCDATA_API_URL || "https://syncdata.kpungawi.com",
+  kind: "NIK" | "NKK" = "NIK"
+): Promise<TangmasSearchResult> {
+  const cleanQuery = String(nikOrNkk || "").trim().replace(/\D/g, "");
+
+  let res = await fetch(`${baseUrl}/api/v1/search/tangmas`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query: cleanQuery, kind }),
+  });
+
+  if (res.status === 404) {
+    res = await fetch(`${baseUrl}/api/v1/search/pemilih`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: cleanQuery, kind }),
+    });
+  }
+
+  const result = await res.json();
+  if (!res.ok) {
+    throw new Error(result.message || "Gagal melakukan pencarian Tangmas");
+  }
+
+  return {
+    success: result.success ?? true,
+    query: cleanQuery,
+    kind,
+    total: result.total ?? (result.records?.length || 0),
+    records: result.records || [],
+  };
+}

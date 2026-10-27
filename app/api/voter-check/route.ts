@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import pool from "@/lib/db";
+import { searchTangmasRaw } from "@/lib/syncdata";
 
 export async function POST(request: Request) {
   try {
@@ -39,22 +40,19 @@ export async function POST(request: Request) {
       });
     }
 
-    // 2. Query voter dari syncdata
+    // 2. Query voter dari syncdata (POST /api/v1/search/tangmas)
     const syncdataUrl = process.env.SYNCDATA_API_URL || "https://syncdata.kpungawi.com";
-    const res = await fetch(`${syncdataUrl}/api/v1/search/pemilih`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: cleanNik, kind: "NIK" }),
-    });
-
-    if (!res.ok) {
+    let json;
+    try {
+      json = await searchTangmasRaw(cleanNik, syncdataUrl, "NIK");
+    } catch (err: any) {
+      console.error("[api/voter-check] Error from syncdata:", err.message);
       return NextResponse.json(
         { success: false, message: "Gagal menghubungi server syncdata KPU." },
         { status: 502 }
       );
     }
 
-    const json = await res.json();
     const record = json.records && json.records.length > 0 ? json.records[0] : null;
 
     if (!record) {

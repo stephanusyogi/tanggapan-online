@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { findTpsCoordinates } from "@/lib/tps";
+import { searchTangmasRaw } from "@/lib/syncdata";
 
 export async function POST(request: Request) {
   try {
@@ -16,22 +17,18 @@ export async function POST(request: Request) {
 
     const syncdataUrl = process.env.SYNCDATA_API_URL || "https://syncdata.kpungawi.com";
 
-    // 1. Call syncdata search/pemilih directly using raw NIK (syncdata handles HMAC internally)
-    const res = await fetch(`${syncdataUrl}/api/v1/search/pemilih`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: digitsOnly, kind: "NIK" })
-    });
-
-    if (!res.ok) {
-      console.error("[api/search] Error from syncdata:", res.statusText);
+    // 1. Call syncdata search/tangmas (POST /api/v1/search/tangmas)
+    let json;
+    try {
+      json = await searchTangmasRaw(digitsOnly, syncdataUrl, "NIK");
+    } catch (err: any) {
+      console.error("[api/search] Error from syncdata:", err.message);
       return NextResponse.json({
         status: "error",
         message: "Gagal menghubungi server data KPU. Silakan coba sesaat lagi."
       }, { status: 502 });
     }
 
-    const json = await res.json();
     const record = json.records && json.records.length > 0 ? json.records[0] : null;
 
     if (!record) {
