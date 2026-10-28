@@ -61,8 +61,42 @@ export default function LandingPage() {
     setLastNikVal(rawVal);
   };
 
+  const handleInput = (e: React.FormEvent<HTMLInputElement>) => {
+    const target = e.currentTarget;
+    const cleanVal = target.value.replace(/\D/g, "").slice(0, 16);
+    if (cleanVal !== nikInput) {
+      setNikInput(cleanVal);
+      setLastNikVal(cleanVal);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pastedText = e.clipboardData.getData("text") || "";
+    const cleanVal = pastedText.replace(/\D/g, "").slice(0, 16);
+    handleNumericInput(cleanVal, lastNikVal, "NIK");
+    setNikInput(cleanVal);
+    setLastNikVal(cleanVal);
+    if (inputRef.current) {
+      inputRef.current.value = cleanVal;
+    }
+  };
+
   const handleSearch = async () => {
-    if (nikInput.length !== 16) {
+    // Ambil nilai terkini dari DOM element inputRef atau state nikInput
+    const domVal = inputRef.current ? inputRef.current.value : "";
+    const effectiveNik = (domVal || nikInput || "").replace(/\D/g, "").slice(0, 16);
+
+    // Sinkronkan state dan DOM jika berbeda (misal akibat autofill browser)
+    if (effectiveNik !== nikInput) {
+      setNikInput(effectiveNik);
+      setLastNikVal(effectiveNik);
+      if (inputRef.current) {
+        inputRef.current.value = effectiveNik;
+      }
+    }
+
+    if (effectiveNik.length !== 16) {
       const msg = "Nomor Induk Kependudukan harus terdiri dari 16 digit angka!";
       speakAlert("Nomor Induk Kependudukan harus terdiri dari enam belas digit angka.");
       Swal.fire({
@@ -78,7 +112,7 @@ export default function LandingPage() {
       const res = await fetch("/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nik: nikInput }),
+        body: JSON.stringify({ nik: effectiveNik }),
       });
 
       const result = await res.json();
@@ -348,6 +382,8 @@ export default function LandingPage() {
               name="nik"
               value={nikInput}
               onChange={handleInputChange}
+              onInput={handleInput}
+              onPaste={handlePaste}
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSearch();
               }}
