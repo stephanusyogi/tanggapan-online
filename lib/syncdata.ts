@@ -1,5 +1,7 @@
 const SYNCDATA_URL =
-  process.env.SYNCDATA_API_URL || "https://syncdata.kpungawi.com";
+  process.env.DATA_API_URL ||
+  process.env.SYNCDATA_API_URL ||
+  "https://syncdata.kpungawi.com";
 
 let cachedTahapan: {
   nama: string;
@@ -85,12 +87,43 @@ export interface TangmasSearchResult {
 }
 
 /**
+ * Fungsi helper untuk cek data pemilih aktif di Tangmas
+ */
+export async function checkPemilihTangmas(nikOrNkk: string, kind?: "NIK" | "NKK") {
+  const baseUrl = process.env.DATA_API_URL || process.env.NEXT_PUBLIC_DATA_API_URL || "http://localhost:3000";
+
+  const response = await fetch(`${baseUrl}/api/v1/search/tangmas`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query: nikOrNkk,
+      ...(kind ? { kind } : {}),
+    }),
+    cache: "no-store",
+  });
+
+  if (response.status === 429) {
+    throw new Error("Terlalu sering melakukan pencarian. Silakan coba 1 menit lagi.");
+  }
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.message || "Gagal memverifikasi NIK/NKK.");
+  }
+
+  const data = await response.json();
+  return data;
+}
+
+/**
  * Cek pemilih Tangmas via syncdata API:
  * Endpoint: POST /api/v1/search/tangmas
  */
 export async function cekPemilihTangmas(
   nikOrNkk: string,
-  baseUrl = process.env.SYNCDATA_API_URL || "https://syncdata.kpungawi.com",
+  baseUrl = process.env.DATA_API_URL || process.env.SYNCDATA_API_URL || "https://syncdata.kpungawi.com",
   kind: "NIK" | "NKK" = "NIK"
 ): Promise<PemilihRecord | null> {
   const cleanQuery = String(nikOrNkk || "").trim().replace(/\D/g, "");
@@ -99,6 +132,7 @@ export async function cekPemilihTangmas(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query: cleanQuery, kind }),
+    cache: "no-store",
   });
 
   // Fallback ke /api/v1/search/pemilih jika endpoint /search/tangmas belum tersedia (404)
@@ -107,12 +141,21 @@ export async function cekPemilihTangmas(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query: cleanQuery, kind }),
+      cache: "no-store",
     });
   }
 
-  const result = await res.json();
+  if (res.status === 429) {
+    const err: any = new Error("Terlalu sering melakukan pencarian. Silakan coba 1 menit lagi.");
+    err.status = 429;
+    throw err;
+  }
+
+  const result = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(result.message || "Gagal melakukan pencarian Tangmas");
+    const err: any = new Error(result.message || "Gagal memverifikasi NIK/NKK.");
+    err.status = res.status;
+    throw err;
   }
 
   if (result.total > 0 && result.records && result.records.length > 0) {
@@ -132,7 +175,7 @@ export async function cekPemilihTangmas(
  */
 export async function searchTangmasRaw(
   nikOrNkk: string,
-  baseUrl = process.env.SYNCDATA_API_URL || "https://syncdata.kpungawi.com",
+  baseUrl = process.env.DATA_API_URL || process.env.SYNCDATA_API_URL || "https://syncdata.kpungawi.com",
   kind: "NIK" | "NKK" = "NIK"
 ): Promise<TangmasSearchResult> {
   const cleanQuery = String(nikOrNkk || "").trim().replace(/\D/g, "");
@@ -141,6 +184,7 @@ export async function searchTangmasRaw(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query: cleanQuery, kind }),
+    cache: "no-store",
   });
 
   if (res.status === 404) {
@@ -148,12 +192,21 @@ export async function searchTangmasRaw(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ query: cleanQuery, kind }),
+      cache: "no-store",
     });
   }
 
-  const result = await res.json();
+  if (res.status === 429) {
+    const err: any = new Error("Terlalu sering melakukan pencarian. Silakan coba 1 menit lagi.");
+    err.status = 429;
+    throw err;
+  }
+
+  const result = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(result.message || "Gagal melakukan pencarian Tangmas");
+    const err: any = new Error(result.message || "Gagal memverifikasi NIK/NKK.");
+    err.status = res.status;
+    throw err;
   }
 
   return {
@@ -164,3 +217,4 @@ export async function searchTangmasRaw(
     records: result.records || [],
   };
 }
+

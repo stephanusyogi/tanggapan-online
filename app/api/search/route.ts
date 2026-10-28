@@ -15,7 +15,10 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    const syncdataUrl = process.env.SYNCDATA_API_URL || "https://syncdata.kpungawi.com";
+    const syncdataUrl =
+      process.env.DATA_API_URL ||
+      process.env.SYNCDATA_API_URL ||
+      "https://syncdata.kpungawi.com";
 
     // 1. Call syncdata search/tangmas (POST /api/v1/search/tangmas)
     let json;
@@ -23,6 +26,12 @@ export async function POST(request: Request) {
       json = await searchTangmasRaw(digitsOnly, syncdataUrl, "NIK");
     } catch (err: any) {
       console.error("[api/search] Error from syncdata:", err.message);
+      if (err.status === 429 || err.message?.includes("Terlalu")) {
+        return NextResponse.json({
+          status: "rate_limited",
+          message: err.message || "Terlalu sering melakukan pencarian. Silakan coba 1 menit lagi."
+        }, { status: 429 });
+      }
       return NextResponse.json({
         status: "error",
         message: "Gagal menghubungi server data KPU. Silakan coba sesaat lagi."

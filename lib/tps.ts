@@ -22,7 +22,10 @@ export async function getTpsList(): Promise<MasterTps[]> {
     return cachedTpsList;
   }
 
-  const syncdataUrl = process.env.SYNCDATA_API_URL || "https://syncdata.kpungawi.com";
+  const syncdataUrl =
+    process.env.DATA_API_URL ||
+    process.env.SYNCDATA_API_URL ||
+    "https://syncdata.kpungawi.com";
   try {
     const res = await fetch(`${syncdataUrl}/api/v1/tps`, {
       next: { revalidate: 3600 }

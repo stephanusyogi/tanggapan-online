@@ -41,12 +41,24 @@ export async function POST(request: Request) {
     }
 
     // 2. Query voter dari syncdata (POST /api/v1/search/tangmas)
-    const syncdataUrl = process.env.SYNCDATA_API_URL || "https://syncdata.kpungawi.com";
+    const syncdataUrl =
+      process.env.DATA_API_URL ||
+      process.env.SYNCDATA_API_URL ||
+      "https://syncdata.kpungawi.com";
     let json;
     try {
       json = await searchTangmasRaw(cleanNik, syncdataUrl, "NIK");
     } catch (err: any) {
       console.error("[api/voter-check] Error from syncdata:", err.message);
+      if (err.status === 429 || err.message?.includes("Terlalu")) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: err.message || "Terlalu sering melakukan pencarian. Silakan coba 1 menit lagi.",
+          },
+          { status: 429 }
+        );
+      }
       return NextResponse.json(
         { success: false, message: "Gagal menghubungi server syncdata KPU." },
         { status: 502 }
