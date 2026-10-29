@@ -111,8 +111,8 @@ export default function LandingPage() {
     }
 
     if (!turnstileToken) {
-      const msg = "Silakan selesaikan verifikasi keamanan (CAPTCHA) terlebih dahulu.";
-      speakAlert("Silakan selesaikan verifikasi keamanan CAPTCHA terlebih dahulu.");
+      const msg = "Silakan selesaikan verifikasi keamanan (CAPTCHA) di pojok kanan bawah terlebih dahulu.";
+      speakAlert("Silakan selesaikan verifikasi keamanan di pojok kanan bawah terlebih dahulu.");
       Swal.fire({
         icon: "warning",
         title: "Verifikasi Keamanan",
@@ -436,26 +436,6 @@ export default function LandingPage() {
               Keterangan : Silahkan ketik Nomor Induk Kependudukan (NIK).
             </p>
 
-            {/* Cloudflare Turnstile CAPTCHA Protection */}
-            <div
-              className="turnstile-wrapper"
-              style={{
-                display: "flex",
-                justifyContent: "center",
-                margin: "18px 0 12px 0",
-                minHeight: "65px",
-                width: "100%",
-              }}
-            >
-              <Turnstile
-                ref={turnstileRef}
-                action="search_dpt"
-                onVerify={(token) => setTurnstileToken(token)}
-                onExpire={() => setTurnstileToken("")}
-                onError={() => setTurnstileToken("")}
-              />
-            </div>
-
             <div className="button-container">
               <button
                 type="button"
@@ -516,19 +496,40 @@ export default function LandingPage() {
         <i className={`fas ${ttsEnabled ? "fa-volume-up" : "fa-volume-mute"} floating-icon`} />
       </button>
 
-      {/* Floating WhatsApp Helpdesk (Bawah Kanan) */}
-      <a
-        href="https://wa.me/62859106510645?text=Halo%20saya%20butuh%20bantuan%20mengenai%20formulir%20tanggapan%20masyarakat%20di%20KPU%20Kabupaten%20Ngawi"
-        className="whatsapp-button"
-        target="_blank"
-        rel="noopener noreferrer"
-        title="Hubungi Helpdesk WhatsApp KPU Ngawi"
-      >
-        <img
-          src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg"
-          alt="WhatsApp KPU Ngawi"
-        />
-      </a>
+      {/* Floating Actions (Bawah Kanan): WhatsApp & Cloudflare Turnstile */}
+      <div className="floating-bottom-right">
+        {/* Floating WhatsApp Helpdesk */}
+        <a
+          href="https://wa.me/62859106510645?text=Halo%20saya%20butuh%20bantuan%20mengenai%20formulir%20tanggapan%20masyarakat%20di%20KPU%20Kabupaten%20Ngawi"
+          className="whatsapp-button"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Hubungi Helpdesk WhatsApp KPU Ngawi"
+        >
+          <img
+            src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg"
+            alt="WhatsApp KPU Ngawi"
+          />
+        </a>
+
+        {/* Cloudflare Turnstile Minimalis di bawah WhatsApp */}
+        <div
+          className="turnstile-floating-wrapper"
+          style={{
+            display: searchResult ? "none" : "flex",
+          }}
+        >
+          <Turnstile
+            ref={turnstileRef}
+            action="search_dpt"
+            theme="light"
+            size="normal"
+            onVerify={(token) => setTurnstileToken(token)}
+            onExpire={() => setTurnstileToken("")}
+            onError={() => setTurnstileToken("")}
+          />
+        </div>
+      </div>
     </>
   );
 }

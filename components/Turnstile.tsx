@@ -115,7 +115,7 @@ const Turnstile = forwardRef<TurnstileHandle, TurnstileProps>(
       siteKey,
       action,
       cData,
-      theme = "auto",
+      theme = "light",
       size = "normal",
       onVerify,
       onExpire,
