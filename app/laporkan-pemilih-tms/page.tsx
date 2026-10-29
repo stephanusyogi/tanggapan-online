@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Swal from "sweetalert2";
 import SignaturePadComponent, { SignaturePadHandle } from "@/components/SignaturePadComponent";
+import Turnstile, { TurnstileHandle } from "@/components/Turnstile";
 import { useTTS } from "@/lib/useTTS";
 
 interface VoterRecord {
@@ -61,8 +62,10 @@ function PemilihTmsContent() {
   const [responderEmail, setResponderEmail] = useState<string>("");
   const [ktpPelaporFile, setKtpPelaporFile] = useState<File | null>(null);
   const [signatureData, setSignatureData] = useState<string>("");
+  const [turnstileToken, setTurnstileToken] = useState<string>("");
 
   const sigPadRef = useRef<SignaturePadHandle>(null);
+  const turnstileRef = useRef<TurnstileHandle>(null);
   const { ttsEnabled, toggleTts, speakAlert, handleNumericInput } = useTTS();
 
   // Perform Voter Check
@@ -231,6 +234,17 @@ function PemilihTmsContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!turnstileToken) {
+      speakAlert("Harap selesaikan verifikasi keamanan CAPTCHA terlebih dahulu.");
+      Swal.fire({
+        icon: "warning",
+        title: "Verifikasi Keamanan Diperlukan",
+        text: "Harap selesaikan verifikasi Turnstile (CAPTCHA) sebelum mengirimkan laporan.",
+        confirmButtonColor: "#dc3545",
+      });
+      return;
+    }
+
     const swalRes = await Swal.fire({
       title: "Konfirmasi Laporan Pemilih TMS",
       text: "Apakah Anda yakin seluruh data pelaporan pemilih Tidak Memenuhi Syarat (TMS) sudah benar dan siap dikirim?",
@@ -273,6 +287,8 @@ function PemilihTmsContent() {
       fd.append("responder_email", responderEmail);
       if (ktpPelaporFile) fd.append("ktp_pelapor", ktpPelaporFile);
       fd.append("signature_data", signatureData);
+      fd.append("cf-turnstile-response", turnstileToken);
+      fd.append("turnstileToken", turnstileToken);
 
       const res = await fetch("/api/laporkan-pemilih-tms", {
         method: "POST",
@@ -281,6 +297,10 @@ function PemilihTmsContent() {
 
       const json = await res.json();
       setLoading(false);
+
+      // Reset Turnstile untuk siklus pengiriman berikutnya
+      turnstileRef.current?.reset();
+      setTurnstileToken("");
 
       if (json.success) {
         speakAlert("Laporan pemilih tidak memenuhi syarat berhasil terkirim. Terima kasih atas partisipasi Anda.");
@@ -301,6 +321,8 @@ function PemilihTmsContent() {
       }
     } catch (err: any) {
       setLoading(false);
+      turnstileRef.current?.reset();
+      setTurnstileToken("");
       Swal.fire({
         icon: "error",
         title: "Kesalahan Sistem",
@@ -931,6 +953,26 @@ function PemilihTmsContent() {
                     )}
                     <p style={{ fontWeight: 600 }}>({responderName.toUpperCase()})</p>
                   </div>
+                </div>
+
+                {/* Cloudflare Turnstile CAPTCHA Protection */}
+                <div
+                  className="turnstile-wrapper"
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    margin: "20px 0 16px 0",
+                    minHeight: "65px",
+                    width: "100%",
+                  }}
+                >
+                  <Turnstile
+                    ref={turnstileRef}
+                    action="laporkan_pemilih_tms"
+                    onVerify={(token) => setTurnstileToken(token)}
+                    onExpire={() => setTurnstileToken("")}
+                    onError={() => setTurnstileToken("")}
+                  />
                 </div>
 
                 <div className="form-buttons">

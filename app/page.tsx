@@ -6,6 +6,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import Swal from "sweetalert2";
 import { useTTS } from "@/lib/useTTS";
+import Turnstile, { TurnstileHandle } from "@/components/Turnstile";
 
 // Dynamic import Leaflet map to avoid SSR issues
 const TpsMap = dynamic(() => import("@/components/TpsMap"), { ssr: false });
@@ -34,6 +35,8 @@ export default function LandingPage() {
   const [lastNikVal, setLastNikVal] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
   const [searchResult, setSearchResult] = useState<PemilihData | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string>("");
+  const turnstileRef = useRef<TurnstileHandle>(null);
 
   const { ttsEnabled, toggleTts, speak, speakAlert, handleNumericInput, bacaNarasiHasil } = useTTS();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -107,16 +110,48 @@ export default function LandingPage() {
       return;
     }
 
+    if (!turnstileToken) {
+      const msg = "Silakan selesaikan verifikasi keamanan (CAPTCHA) terlebih dahulu.";
+      speakAlert("Silakan selesaikan verifikasi keamanan CAPTCHA terlebih dahulu.");
+      Swal.fire({
+        icon: "warning",
+        title: "Verifikasi Keamanan",
+        text: msg,
+        confirmButtonColor: "#550d07",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch("/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nik: effectiveNik }),
+        body: JSON.stringify({
+          nik: effectiveNik,
+          turnstileToken,
+          "cf-turnstile-response": turnstileToken,
+        }),
       });
 
       const result = await res.json();
       setLoading(false);
+
+      // Reset Turnstile widget dan token untuk keamanan setiap pencarian
+      turnstileRef.current?.reset();
+      setTurnstileToken("");
+
+      if (res.status === 403 || result.status === "turnstile_error") {
+        const errorMsg = result.message || "Verifikasi CAPTCHA gagal atau kedaluwarsa. Silakan ulangi centang verifikasi.";
+        speakAlert("Verifikasi keamanan gagal.");
+        Swal.fire({
+          icon: "error",
+          title: "Verifikasi Keamanan Gagal",
+          text: errorMsg,
+          confirmButtonColor: "#550d07",
+        });
+        return;
+      }
 
       if (result.status === "found") {
         setSearchResult(result.data);
@@ -148,8 +183,10 @@ export default function LandingPage() {
           }
         });
       }
-    } catch (err) {
+    } catch {
       setLoading(false);
+      turnstileRef.current?.reset();
+      setTurnstileToken("");
       speakAlert("Terjadi kesalahan jaringan.");
       Swal.fire({
         icon: "error",
@@ -163,6 +200,10 @@ export default function LandingPage() {
     setSearchResult(null);
     setNikInput("");
     setLastNikVal("");
+    setTurnstileToken("");
+    setTimeout(() => {
+      turnstileRef.current?.reset();
+    }, 50);
   };
 
   const handleChangeButton = () => {
@@ -394,6 +435,26 @@ export default function LandingPage() {
             <p className="description">
               Keterangan : Silahkan ketik Nomor Induk Kependudukan (NIK).
             </p>
+
+            {/* Cloudflare Turnstile CAPTCHA Protection */}
+            <div
+              className="turnstile-wrapper"
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                margin: "18px 0 12px 0",
+                minHeight: "65px",
+                width: "100%",
+              }}
+            >
+              <Turnstile
+                ref={turnstileRef}
+                action="search_dpt"
+                onVerify={(token) => setTurnstileToken(token)}
+                onExpire={() => setTurnstileToken("")}
+                onError={() => setTurnstileToken("")}
+              />
+            </div>
 
             <div className="button-container">
               <button

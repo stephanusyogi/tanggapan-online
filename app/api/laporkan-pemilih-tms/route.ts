@@ -4,6 +4,7 @@ import pool from "@/lib/db";
 import { getActiveTahapan } from "@/lib/syncdata";
 import { saveUploadedFile, saveBase64Signature } from "@/lib/upload";
 import { sendPengajuanTerkirimMail, sendTanggapanMasukAdminMail } from "@/lib/mail";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
 const TMS_CATEGORY_MAP: Record<string, string> = {
   MENINGGAL: "MENINGGAL (1)",
@@ -27,6 +28,31 @@ const TMS_CATEGORY_MAP: Record<string, string> = {
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
+
+    // Verifikasi CAPTCHA Turnstile
+    const turnstileToken = String(
+      formData.get("cf-turnstile-response") ||
+      formData.get("turnstileToken") ||
+      ""
+    );
+    const clientIp =
+      request.headers.get("cf-connecting-ip") ||
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      request.headers.get("x-real-ip") ||
+      undefined;
+
+    const turnstileResult = await verifyTurnstileToken(turnstileToken, clientIp);
+    if (!turnstileResult.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          message:
+            turnstileResult.message ||
+            "Verifikasi keamanan (CAPTCHA) gagal atau belum diselesaikan.",
+        },
+        { status: 403 }
+      );
+    }
 
     // Data Asli Pemilih
     const originalNik = String(formData.get("original_nik") || "").trim().replace(/\D/g, "");

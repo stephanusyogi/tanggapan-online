@@ -1,12 +1,35 @@
 import { NextResponse } from "next/server";
 import { findTpsCoordinates } from "@/lib/tps";
 import { searchTangmasRaw } from "@/lib/syncdata";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => ({}));
     const rawNik = String(body.nik || "").trim();
     const digitsOnly = rawNik.replace(/\D/g, "");
+
+    // 1. Verifikasi CAPTCHA Turnstile
+    const turnstileToken =
+      body["cf-turnstile-response"] || body.turnstileToken || body.token;
+    const clientIp =
+      request.headers.get("cf-connecting-ip") ||
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      request.headers.get("x-real-ip") ||
+      undefined;
+
+    const turnstileResult = await verifyTurnstileToken(turnstileToken, clientIp);
+    if (!turnstileResult.success) {
+      return NextResponse.json(
+        {
+          status: "turnstile_error",
+          message:
+            turnstileResult.message ||
+            "Verifikasi keamanan (CAPTCHA) gagal atau belum diselesaikan.",
+        },
+        { status: 403 }
+      );
+    }
 
     if (digitsOnly.length !== 16) {
       return NextResponse.json({
